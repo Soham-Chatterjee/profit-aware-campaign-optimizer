@@ -19,4 +19,6 @@ st.navigation([
     st.Page("views/2_Propensity_and_Opportunities.py", title="Propensity & Opportunities"),
     st.Page("views/3_Campaign_Optimization.py", title="Campaign Optimization"),
     st.Page("views/4_What_If_Simulation.py", title="What-if Simulation"),
+    st.Page("views/5_Monitoring.py", title="Monitoring (Evidently)"),
+    st.Page("views/6_Experiments.py", title="Experiments (MLflow)"),
 ]).run()

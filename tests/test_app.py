@@ -11,7 +11,8 @@ from pacopt import scenario as sc
 
 APP = Path(__file__).resolve().parents[1] / "app" / "Home.py"
 PAGES = ["views/0_Command_Centre.py", "views/1_Customer_Intelligence.py", "views/2_Propensity_and_Opportunities.py",
-         "views/3_Campaign_Optimization.py", "views/4_What_If_Simulation.py"]
+         "views/3_Campaign_Optimization.py", "views/4_What_If_Simulation.py",
+         "views/5_Monitoring.py", "views/6_Experiments.py"]
 
 
 def _run(page: str | None = None, timeout: int = 180) -> AppTest:
