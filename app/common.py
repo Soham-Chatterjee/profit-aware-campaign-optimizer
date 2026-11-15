@@ -39,9 +39,11 @@ def disclaimer() -> None:
                "illustration. Source: UCI Bank Marketing (CC BY 4.0), a 2008-2010 Portuguese campaign.")
 
 
-def show(fig: go.Figure, key: str | None = None) -> None:
+def show(fig: go.Figure, key: str | None = None, note: bool = True) -> None:
+    """Render a chart. `note=False` skips the per-chart prototype note (the page footer carries it)."""
     st.plotly_chart(fig, width="stretch", theme=None, key=key, config={"displayModeBar": False})
-    st.caption(ch.PROTOTYPE_NOTE)
+    if note:
+        st.caption(ch.PROTOTYPE_NOTE)
 
 
 # ----------------------------------------------------------------------------- data (cached)
@@ -250,6 +252,9 @@ def run_optimisers(scenario: sc.Scenario, run_ga: bool = True, run_milp: bool = 
         with st.spinner("Solving the exact optimum (MILP)…"):
             mres = op.milp_optimum(pr, replace(cfg.OPTIM, milp_time_limit=MILP_TIME_LIMIT_S))
     runs[key] = (ga_res, mres)
+    if run_ga:   # only explicit GA runs are tracked, never slider moves
+        from pacopt import tracking
+        tracking.log_ga_run(op.with_optimisers(t, baselines(key), ga_res, mres), t, scenario, source="dashboard")
 
 
 # ----------------------------------------------------------------------------- shared formatting

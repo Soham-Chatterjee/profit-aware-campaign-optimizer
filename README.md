@@ -36,6 +36,21 @@ uv run pytest                                    # full test suite (~5 min)
 
 The raw data is committed (`data/raw/`, CC BY 4.0, with a SHA-256 check). `data/processed/` and `artifacts/` are git-ignored and rebuilt by the pipeline. The dashboard needs the pipeline to have run once.
 
+## Experiment tracking (MLflow) and drift monitoring (Evidently)
+
+Everything runs locally: runs go to `mlruns.db` and artifacts to `mlartifacts/` (both git-ignored).
+
+| Command | Purpose |
+|---|---|
+| `uv run python -m pacopt.pipeline` | Also logs the models and every strategy to MLflow (add `--no-track` to skip) |
+| `uv run mlflow ui --backend-store-uri sqlite:///mlruns.db` | The full MLflow UI at http://localhost:5000 |
+
+- **`propensity-model`:** Logistic Regression and Random Forest, each with params, metrics, feature importance (permutation importance for both, coefficients for LR) and the model. The selected model is registered as `propensity-champion`.
+- **`campaign-optimization`:** one run per strategy (Random, Rule-based, Propensity, Greedy, GA, MILP) with the scenario as parameters. The GA run also logs its per-generation convergence. On the dashboard, only an explicit **Run GA** click creates a run, never a slider move.
+- **`data-drift`:** the Monitoring page uses **simulated** drift (there is no production feed): reference = training data, current = the campaign universe with seven sliders applied (age, balance, customer mix, contact channel, previous-campaign successes, contact fatigue, loan stress). Evidently reports data drift, prediction drift and data quality. **Log this check to MLflow** saves one.
+- **Dashboard pages:** *Monitoring (Evidently)* and *Experiments (MLflow)*.
+- **Dependency note:** Evidently 0.4.x is pinned because newer releases require `plotly<6`. It imports a helper that pandas 3 removed, so `monitoring.py` restores it before importing Evidently.
+
 ## How it works
 
 ```

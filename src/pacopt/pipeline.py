@@ -98,13 +98,19 @@ def load_optimisation(table: pd.DataFrame, cc: cfg.CampaignConstraints = cfg.CON
     return ga_res, mres
 
 
-def run(retrain: bool = True, optimise: bool = True) -> tuple[pd.DataFrame, "opt.Comparison | None"]:
+def run(retrain: bool = True, optimise: bool = True,
+        track: bool = False) -> tuple[pd.DataFrame, "opt.Comparison | None"]:
+    """`track=True` also logs the models and strategy runs to MLflow (see `tracking.py`)."""
     feats, parts = ft.prepare()
     ft.save_processed(feats, parts)
+    train_run_id = None
     if retrain:
         res = m.train_and_evaluate(parts.train, parts.test, parts.universe)
         m.save(res)
         scored = res.scored
+        if track:
+            from pacopt import tracking
+            train_run_id = tracking.log_training(res, parts.test)
     else:
         scored = load_scored()
     table = campaign_table(parts.universe, scored)
@@ -113,6 +119,9 @@ def run(retrain: bool = True, optimise: bool = True) -> tuple[pd.DataFrame, "opt
     if optimise:
         comp = opt.compare_strategies(table)
         save_optimisation(table, comp)
+        if track:
+            from pacopt import scenario as sc, tracking   # local: scenario imports this module
+            tracking.log_comparison(comp, table, sc.DEFAULT, train_run_id=train_run_id)
     return table, comp
 
 
@@ -122,8 +131,9 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Run the campaign pipeline.")
     ap.add_argument("--no-retrain", action="store_true", help="reuse the saved propensity scores")
     ap.add_argument("--no-optimise", action="store_true", help="stop after the campaign table (skip M4)")
+    ap.add_argument("--no-track", action="store_true", help="do not log this run to MLflow")
     args = ap.parse_args()
-    t, comp = run(retrain=not args.no_retrain, optimise=not args.no_optimise)
+    t, comp = run(retrain=not args.no_retrain, optimise=not args.no_optimise, track=not args.no_track)
     b = econ.budget_check(t)
     print(f"campaign table {t.shape} -> {CAMPAIGN_TABLE_PATH}")
     print(t["segment"].value_counts().reindex(list(cfg.SEGMENTS)).to_string())
