@@ -90,6 +90,14 @@ def test_predictions() -> pd.DataFrame:
                          "p_rf": m.predict(b["rf"], test)})
 
 
+@st.cache_data(show_spinner=False)
+def driver_table() -> pd.DataFrame:
+    """Permutation importance of the selected model (a few seconds, computed once per session on demand)."""
+    b = model_bundle()
+    _, test, _ = m.load_processed()
+    return m.permutation_drivers(b[b["selected"]], test)
+
+
 # ----------------------------------------------------------------------------- scenario sidebar
 _DEFAULTS = {
     "budget": cfg.CONSTRAINTS.budget, "max_contacts": cfg.CONSTRAINTS.max_contacts,
