@@ -272,5 +272,18 @@ def gbp(v: float, k: bool = False) -> str:
     return f"£{v / 1e3:,.1f}K" if k else f"£{v:,.0f}"
 
 
+def change(diff: float, suffix: str = "", fmt=None) -> dict:
+    """`st.metric` keyword arguments for a signed change.
+
+    Streamlit picks the arrow from the delta text: it is "down" only if the text starts with "-" and
+    neutral only if it is exactly "0". So the sign goes first ("-£47,874", "+12"), and a change that
+    rounds to zero is shown grey with a dash and no arrow."""
+    fmt = fmt or (lambda v: f"{v:,.0f}")
+    tail = f" {suffix}" if suffix else ""
+    if diff is None or not np.isfinite(diff) or fmt(abs(diff)) == fmt(0):
+        return {"delta": f"– {fmt(0)}{tail}", "delta_arrow": "off", "delta_color": "off"}
+    return {"delta": f"{'-' if diff < 0 else '+'}{fmt(abs(diff))}{tail}"}
+
+
 def channel_label(c: str) -> str:
     return CHANNEL_LABEL.get(c, c)
