@@ -19,7 +19,7 @@ cm.page_header("What-if Simulation",
                "scenario, and compare the result with it.")
 
 # ----------------------------------------------------------------------------- local inputs
-with st.container(border=True):
+with st.form("whatif", border=True):
     st.markdown("**What-if inputs** (start from the sidebar scenario)")
     c = st.columns(6)
     budget = c[0].number_input("Marketing budget (£)", 1_000.0, 500_000.0, float(base_s.constraints.budget), 5_000.0, format="%.0f")
@@ -29,31 +29,36 @@ with st.container(border=True):
     spread = c[4].slider("Funding spread (%)", 0.0, 5.0, float(round(base_s.economics.spread * 100, 2)), 0.05,
                          help="Changed through the FTP rate; the customer rate stays fixed")
     incentive = c[5].number_input("Incentive (£)", 0.0, 1_000.0, float(base_s.economics.incentive), 5.0)
+    submitted = st.form_submit_button("Run what-if simulation", type="primary", icon="🧬")
 
 econ = replace(base_s.economics, ftp_rate=base_s.economics.customer_rate + spread / 100, incentive=incentive,
                channel_cost={"mobile_call": cm_, "landline_call": cl_, "digital": cd_})
 w = replace(base_s, economics=econ, constraints=replace(base_s.constraints, budget=budget))
 wt = cm.campaign_table(w.to_json())
-wb = cm.baselines(w.to_json())
 bt = cm.campaign_table(base_s.to_json())
-bb = cm.baselines(base_s.to_json())
+# The GA is the strategy we use, so the headline is the GA result. It runs once per what-if (up to
+# GA_TIME_LIMIT_S), then is reused from the session; the default scenario loads the saved run instantly.
+# Only a run started by the button is logged to MLflow, never a page load.
+res = cm.ensure_ga(w, track=submitted)
+base_res = cm.ensure_ga(base_s)
 
 # ----------------------------------------------------------------------------- headline comparison
-g_w, g_b = wb.table.loc["Greedy"], bb.table.loc["Greedy"]
+GA = "Genetic Algorithm"
+g_w, g_b = res.table.loc[GA], base_res.table.loc[GA]
 k = st.columns(4)
 pos_w = int((wt[wt.eligible == 1].expected_profit > 0).sum())
 pos_b = int((bt[bt.eligible == 1].expected_profit > 0).sum())
-k[0].metric("Expected contribution (Greedy)", cm.gbp(g_w["expected_contribution"]), border=True,
+k[0].metric("Expected contribution (GA)", cm.gbp(g_w["expected_contribution"]), border=True,
             **cm.change(g_w["expected_contribution"] - g_b["expected_contribution"], "vs scenario", cm.gbp))
 k[1].metric("Contacts", f"{g_w['contacts']:,}", border=True, **cm.change(g_w["contacts"] - g_b["contacts"], "vs scenario"))
 k[2].metric("Spend", cm.gbp(g_w["spend"]), border=True, delta=f"{cm.gbp(budget - g_w['spend'])} unspent", delta_color="off")
 k[3].metric("Customers with positive EP", f"{pos_w:,}", border=True, **cm.change(pos_w - pos_b, "vs scenario"))
-st.caption("Greedy (highest EP per £) gives an instant answer and is within a fraction of a percent of the optimum "
-           "in the default scenario. Use the GA re-run below to optimise this what-if under every constraint.")
+st.caption("Results of the Genetic Algorithm optimised for these what-if inputs under every constraint, compared with "
+           "the GA result for the sidebar scenario.")
 
 # ----------------------------------------------------------------------------- affordable vs actual
 st.markdown("##### Maximum affordable contacts vs actual allocation")
-aff = sc.affordable_contacts(wt, w.constraints, wb.selections["Greedy"])
+aff = sc.affordable_contacts(wt, w.constraints, res.selections[GA])
 aff = aff.rename(index=lambda i: cm.channel_label(i))
 st.dataframe(aff.reset_index(), hide_index=True, column_config={
     "channel": "Channel", "channel_group": "Group",
@@ -93,24 +98,22 @@ fig.add_scatter(x=[budget], y=[cur["expected_contribution"]], mode="markers", na
 fig.add_vline(x=sat["spend"], line=dict(color=ch.MUTED, dash="dash", width=1.5))
 fig.add_annotation(x=sat["spend"], y=sat["expected_contribution"] * 0.5, text=f"Saturation £{sat['spend']:,.0f}",
                    showarrow=False, xanchor="left", xshift=6, font=dict(color=ch.MUTED, size=11))
-ch.style(fig, "Greedy expected contribution as the budget grows (other limits unchanged)", height=420)
+ch.style(fig, "Expected contribution as the budget grows (other limits unchanged)", height=420)
 xt = np.arange(0, upto + 1, ch._nice_step(upto, 8))
 fig.update_xaxes(title="Budget", tickvals=xt, ticktext=["£0" if v == 0 else f"£{v / 1e3:g}K" for v in xt], range=[0, upto])
 ch.set_value_axis(fig, cv["expected_contribution"].max() * 1.12, money=True)
 fig.update_yaxes(title="Expected contribution")
 cm.show(fig, key="budget_curve")
+st.caption("The curve uses the fast Greedy method at each budget (running the GA at 40 budgets would take minutes). "
+           "Greedy is within a fraction of a percent of the GA in the default scenario.")
 marg = cv.set_index("budget")["expected_contribution"].diff() / cv.set_index("budget").index.to_series().diff()
 st.markdown(
     f"Beyond **£{sat['spend']:,.0f}** extra budget adds nothing: limited by **{sat['limited_by']}** "
     f"({sat['contacts']:,} contacts, {cm.gbp(sat['expected_contribution'])}). "
     f"At £{budget:,.0f} the marginal return is about **£{np.interp(budget, marg.index[1:], marg.values[1:]):.2f} per extra £**.")
 
-# ----------------------------------------------------------------------------- GA re-run
-st.markdown("##### Optimise this what-if with the GA")
-runs = st.session_state.setdefault("opt_runs", {})
-if st.button("Run GA on this what-if", type="primary", icon="🧬"):
-    cm.run_optimisers(w, run_ga=True, run_milp=False)
-res = cm.optimisers(w)
+# ----------------------------------------------------------------------------- strategy comparison
+st.markdown("##### How the GA compares on this what-if")
 if res.has_ga:
     tbl = res.table.loc[[n for n in ("Random", "Propensity", "Greedy", "Genetic Algorithm") if n in res.table.index]]
     st.dataframe(tbl[["contacts", "spend", "expected_contribution", "roi", "incremental_vs_random", "feasible"]].reset_index(),
@@ -123,6 +126,4 @@ if res.has_ga:
                      "feasible": st.column_config.CheckboxColumn("All constraints met")})
     st.caption(f"GA: {res.ga.generations} generations in {res.ga.runtime_s:.1f}s "
                f"(capped at {cm.GA_TIME_LIMIT_S:.0f}s).")
-else:
-    st.caption("Not run yet for these what-if inputs.")
 cm.disclaimer()
