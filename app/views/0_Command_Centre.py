@@ -27,7 +27,7 @@ k2.metric("Average conversion propensity", f"{sel['propensity'].mean():.1%}", bo
 k3.metric("Campaign budget", cm.gbp(s.constraints.budget, k=True), border=True,
           delta=f"{cm.gbp(tb.loc[best, 'spend'], k=True)} used", delta_color="off")
 k4.metric("Expected contribution", cm.gbp(ep, k=True), border=True,
-          delta=f"{cm.gbp(ep - rnd, k=True)} vs Random ({ep / rnd - 1:+.0%})" if rnd else None,
+          **(cm.change(ep - rnd, f"vs Random ({ep / rnd - 1:+.0%})", lambda v: cm.gbp(v, k=True)) if rnd else {}),
           help=f"{best} list. Incremental = vs the Random baseline (proxy for an untargeted campaign).")
 if not comp.has_ga:
     st.info("The genetic algorithm has not been run for this scenario, so the tiles show the Greedy list. "

@@ -41,12 +41,13 @@ bb = cm.baselines(base_s.to_json())
 # ----------------------------------------------------------------------------- headline comparison
 g_w, g_b = wb.table.loc["Greedy"], bb.table.loc["Greedy"]
 k = st.columns(4)
+pos_w = int((wt[wt.eligible == 1].expected_profit > 0).sum())
+pos_b = int((bt[bt.eligible == 1].expected_profit > 0).sum())
 k[0].metric("Expected contribution (Greedy)", cm.gbp(g_w["expected_contribution"]), border=True,
-            delta=f"{cm.gbp(g_w['expected_contribution'] - g_b['expected_contribution'])} vs scenario")
-k[1].metric("Contacts", f"{g_w['contacts']:,}", border=True, delta=f"{g_w['contacts'] - g_b['contacts']:+,}")
+            **cm.change(g_w["expected_contribution"] - g_b["expected_contribution"], "vs scenario", cm.gbp))
+k[1].metric("Contacts", f"{g_w['contacts']:,}", border=True, **cm.change(g_w["contacts"] - g_b["contacts"], "vs scenario"))
 k[2].metric("Spend", cm.gbp(g_w["spend"]), border=True, delta=f"{cm.gbp(budget - g_w['spend'])} unspent", delta_color="off")
-k[3].metric("Customers with positive EP", f"{int((wt[wt.eligible == 1].expected_profit > 0).sum()):,}", border=True,
-            delta=f"{int((wt[wt.eligible == 1].expected_profit > 0).sum() - (bt[bt.eligible == 1].expected_profit > 0).sum()):+,}")
+k[3].metric("Customers with positive EP", f"{pos_w:,}", border=True, **cm.change(pos_w - pos_b, "vs scenario"))
 st.caption("Greedy (highest EP per £) gives an instant answer and is within a fraction of a percent of the optimum "
            "in the default scenario. Use the GA re-run below to optimise this what-if under every constraint.")
 
