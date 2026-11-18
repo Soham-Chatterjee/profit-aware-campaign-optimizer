@@ -21,4 +21,5 @@ st.navigation([
     st.Page("views/4_What_If_Simulation.py", title="What-if Simulation"),
     st.Page("views/5_Monitoring.py", title="Monitoring (Evidently)"),
     st.Page("views/6_Experiments.py", title="Experiments (MLflow)"),
+    st.Page("views/7_Assistant.py", title="Campaign Assistant"),
 ]).run()
