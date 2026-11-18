@@ -236,8 +236,17 @@ def optimisers(scenario: sc.Scenario) -> op.Comparison:
     return op.with_optimisers(campaign_table(key), base, ga_res, mres)
 
 
+def ensure_ga(scenario: sc.Scenario, track: bool = False) -> op.Comparison:
+    """The comparison for `scenario`, running the GA first if no result exists yet (session run or saved)."""
+    comp = optimisers(scenario)
+    if not comp.has_ga:
+        run_optimisers(scenario, run_ga=True, run_milp=False, track=track)
+        comp = optimisers(scenario)
+    return comp
+
+
 def run_optimisers(scenario: sc.Scenario, run_ga: bool = True, run_milp: bool = False,
-                   seeded: bool = True) -> None:
+                   seeded: bool = True, track: bool = True) -> None:
     key = scenario.to_json()
     t = campaign_table(key)
     pr = op.build_problem(t, scenario.constraints)
@@ -260,7 +269,7 @@ def run_optimisers(scenario: sc.Scenario, run_ga: bool = True, run_milp: bool = 
         with st.spinner("Solving the exact optimum (MILP)…"):
             mres = op.milp_optimum(pr, replace(cfg.OPTIM, milp_time_limit=MILP_TIME_LIMIT_S))
     runs[key] = (ga_res, mres)
-    if run_ga:   # only explicit GA runs are tracked, never slider moves
+    if run_ga and track:   # only GA runs started by a button are tracked, never page loads or slider moves
         from pacopt import tracking
         tracking.log_ga_run(op.with_optimisers(t, baselines(key), ga_res, mres), t, scenario, source="dashboard")
 

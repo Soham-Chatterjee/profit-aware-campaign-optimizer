@@ -106,7 +106,7 @@ with tab_models:
 with tab_ga:
     ga = optim_runs[optim_runs["tags.is_ga"] == "True"] if "tags.is_ga" in optim_runs else pd.DataFrame()
     if ga.empty:
-        st.info("No GA runs yet. Press **Run GA** on the Campaign Optimization or What-if page, or run the pipeline.")
+        st.info("No GA runs yet. Press **Run GA** on the Campaign Optimization page or **Run what-if simulation** on the What-if page, or run the pipeline.")
     else:
         ga = ga.assign(label=ga["tags.source"] + " | " + pd.to_datetime(ga["start_time"]).dt.tz_localize(None).dt.strftime("%m-%d %H:%M")
                        + " | £" + (ga["metrics.expected_contribution"] / 1e3).round(1).astype(str) + "K")
